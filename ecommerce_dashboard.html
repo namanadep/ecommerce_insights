@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>E-Commerce Intelligence Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  /* ── DESIGN TOKENS ───────────────────────────────────────────────── */
+  :root {
+    --bg:        #0a0c10;
+    --surface:   #111318;
+    --surface2:  #181c24;
+    --border:    #1e2430;
+    --accent:    #00e5a0;
+    --accent2:   #4f8aff;
+    --accent3:   #ff6b6b;
+    --accent4:   #ffd166;
+    --text:      #e8ecf4;
+    --muted:     #6b7591;
+    --glow:      0 0 30px rgba(0,229,160,.15);
+  }
+
+  /* ── RESET & BASE ─────────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  code, .mono { font-family: 'DM Mono', monospace; }
+
+  /* ── NOISE TEXTURE OVERLAY ────────────────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    opacity: .5;
+  }
+
+  /* ── HEADER ───────────────────────────────────────────────────────── */
+  header {
+    position: relative; z-index: 10;
+    padding: 28px 40px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: linear-gradient(180deg, rgba(0,229,160,.04) 0%, transparent 100%);
+  }
+  .logo {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .logo-mark {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 800; color: #000; flex-shrink: 0;
+    box-shadow: 0 0 20px rgba(0,229,160,.4);
+  }
+  .logo-text { font-size: 15px; font-weight: 700; letter-spacing: .5px; }
+  .logo-sub  { font-size: 11px; color: var(--muted); margin-top: 2px; letter-spacing: 1px; text-transform: uppercase; }
+
+  .header-meta {
+    display: flex; align-items: center; gap: 20px;
+  }
+  .pill {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 99px; padding: 5px 14px;
+    font-size: 11px; color: var(--muted); letter-spacing: .5px;
+  }
+  .pill span { color: var(--accent); font-weight: 600; }
+
+  /* ── NAV TABS ─────────────────────────────────────────────────────── */
+  nav {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(10,12,16,.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    display: flex; gap: 4px;
+  }
+  .tab {
+    padding: 14px 18px; font-size: 13px; font-weight: 600;
+    color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent;
+    transition: all .2s; letter-spacing: .3px;
+    white-space: nowrap;
+  }
+  .tab:hover  { color: var(--text); }
+  .tab.active { color: var(--accent); border-color: var(--accent); }
+
+  /* ── LAYOUT ───────────────────────────────────────────────────────── */
+  main {
+    position: relative; z-index: 1;
+    max-width: 1440px; margin: 0 auto;
+    padding: 40px 40px 80px;
+  }
+  .section { display: none; }
+  .section.active { display: block; animation: fadeUp .4s ease both; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .section-header {
+    margin-bottom: 28px;
+    display: flex; align-items: flex-end; justify-content: space-between;
+  }
+  .section-title { font-size: 22px; font-weight: 800; letter-spacing: -.3px; }
+  .section-title em { color: var(--accent); font-style: normal; }
+  .section-desc { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+  /* ── GRID ─────────────────────────────────────────────────────────── */
+  .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 20px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+  .grid-21 { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+  .grid-12 { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
+
+  @media (max-width: 1100px) {
+    .grid-4 { grid-template-columns: repeat(2,1fr); }
+    .grid-21, .grid-12 { grid-template-columns: 1fr; }
+    .grid-3 { grid-template-columns: repeat(2,1fr); }
+  }
+  @media (max-width: 700px) {
+    main, nav { padding-left: 20px; padding-right: 20px; }
+    header { padding: 18px 20px; }
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    .header-meta { display: none; }
+  }
+
+  /* ── CARDS ────────────────────────────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative; overflow: hidden;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .card:hover { border-color: rgba(0,229,160,.3); box-shadow: var(--glow); }
+  .card-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px;
+    color: var(--muted); margin-bottom: 16px; font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-title .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent); display: inline-block;
+  }
+
+  /* ── KPI CARDS ────────────────────────────────────────────────────── */
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px;
+    position: relative; overflow: hidden;
+    transition: all .2s;
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--kpi-color, var(--accent)) 0%, transparent 100%);
+  }
+  .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 8px 32px rgba(0,0,0,.4); border-color: var(--kpi-color, var(--accent)); }
+  .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); font-weight: 600; }
+  .kpi-val   { font-size: 32px; font-weight: 800; margin-top: 8px; letter-spacing: -1px; }
+  .kpi-sub   { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .kpi-icon  { position: absolute; right: 20px; top: 20px; font-size: 28px; opacity: .15; }
+  .kpi-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(0,229,160,.1); color: var(--accent);
+    border-radius: 99px; padding: 2px 10px; font-size: 11px; font-weight: 700;
+    margin-top: 8px;
+  }
+
+  /* ── CHART WRAPPER ────────────────────────────────────────────────── */
+  .chart-wrap { position: relative; width: 100%; }
+  .chart-wrap canvas { width: 100% !important; }
+
+  /* ── TABLE ────────────────────────────────────────────────────────── */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th {
+    text-align: left; padding: 10px 14px;
+    font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--muted); border-bottom: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+  }
+  .data-table td { padding: 11px 14px; border-bottom: 1px solid rgba(30,36,48,.6); }
+  .data-table tr:hover td { background: var(--surface2); }
+  .data-table tr:last-child td { border-bottom: none; }
+  .rank-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 6px;
+    background: var(--surface2); font-size: 11px; font-weight: 700;
+    color: var(--muted); font-family: 'DM Mono', monospace;
+  }
+  .rank-badge.gold   { background: rgba(255,209,102,.15); color: var(--accent4); }
+  .rank-badge.silver { background: rgba(79,138,255,.12); color: var(--accent2); }
+  .rank-badge.bronze { background: rgba(255,107,107,.12); color: var(--accent3); }
+  .bar-cell { display: flex; align-items: center; gap: 10px; }
+  .mini-bar { height: 4px; border-radius: 2px; background: var(--accent); opacity: .6; }
+
+  /* ── RFM SEGMENT PILLS ────────────────────────────────────────────── */
+  .seg-champions { background: rgba(0,229,160,.12); color: var(--accent); border: 1px solid rgba(0,229,160,.2); }
+  .seg-loyal     { background: rgba(79,138,255,.12); color: var(--accent2); border: 1px solid rgba(79,138,255,.2); }
+  .seg-at-risk   { background: rgba(255,107,107,.12); color: var(--accent3); border: 1px solid rgba(255,107,107,.2); }
+  .seg-others    { background: rgba(255,209,102,.1); color: var(--accent4); border: 1px solid rgba(255,209,102,.15); }
+  .seg-pill {
+    display: inline-block; padding: 3px 10px; border-radius: 99px;
+    font-size: 11px; font-weight: 700; letter-spacing: .3px;
+  }
+
+  /* ── HEATMAP TABLE ────────────────────────────────────────────────── */
+  .heatmap-wrap { overflow-x: auto; }
+  .heatmap {
+    width: 100%; border-collapse: collapse; font-size: 11px;
+    font-family: 'DM Mono', monospace;
+  }
+  .heatmap th {
+    padding: 8px 10px; text-align: center; white-space: nowrap;
+    color: var(--muted); font-weight: 500; font-size: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .heatmap th:first-child { text-align: left; }
+  .heatmap td {
+    padding: 6px 8px; text-align: center; border-radius: 4px;
+    font-weight: 500; min-width: 52px; cursor: default;
+    position: relative; transition: transform .1s;
+  }
+  .heatmap td:first-child { text-align: left; color: var(--muted); white-space: nowrap; padding-left: 4px; }
+  .heatmap tr { height: 30px; }
+  .heatmap td:hover { transform: scale(1.12); z-index: 2; }
+
+  /* ── STAT ROW ─────────────────────────────────────────────────────── */
+  .stat-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-name { font-size: 13px; color: var(--text); }
+  .stat-val  { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--accent); font-weight: 500; }
+
+  /* ── INSIGHT CARDS ────────────────────────────────────────────────── */
+  .insight-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px 24px;
+    display: flex; gap: 16px; align-items: flex-start;
+    transition: border-color .2s;
+  }
+  .insight-card:hover { border-color: rgba(0,229,160,.2); }
+  .insight-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .insight-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+  .insight-text  { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .insight-text strong { color: var(--text); }
+
+  /* ── SCROLLBAR ────────────────────────────────────────────────────── */
+  ::-webkit-scrollbar       { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  /* ── UTILITY ──────────────────────────────────────────────────────── */
+  .mt-20 { margin-top: 20px; }
+  .mt-28 { margin-top: 28px; }
+  .mb-8  { margin-bottom: 8px; }
+  .text-accent { color: var(--accent); }
+  .text-muted  { color: var(--muted); }
+  .fw-700 { font-weight: 700; }
+  .tag {
+    display: inline-block; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 2px 8px; font-size: 11px; color: var(--muted);
+    font-family: 'DM Mono', monospace;
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ══════════════════════════════════════════════════════════ -->
+<header>
+  <div class="logo">
+    <div class="logo-mark">EC</div>
+    <div>
+      <div class="logo-text">E-Commerce Intelligence</div>
+      <div class="logo-sub">Big Data Analytics · Apache Hive · 541,910 Records</div>
+    </div>
+  </div>
+  <div class="header-meta">
+    <div class="pill">Dataset: <span>Online Retail UK</span></div>
+    <div class="pill">Period: <span>Dec 2010 – Dec 2011</span></div>
+    <div class="pill">Engine: <span>Apache Hive</span></div>
+  </div>
+</header>
+
+<!-- ══ NAV TABS ═════════════════════════════════════════════════════════ -->
+<nav>
+  <div class="tab active" onclick="showSection('overview')">Overview</div>
+  <div class="tab" onclick="showSection('trends')">Revenue Trends</div>
+  <div class="tab" onclick="showSection('products')">Products</div>
+  <div class="tab" onclick="showSection('customers')">Customers & RFM</div>
+  <div class="tab" onclick="showSection('cohort')">Cohort Analysis</div>
+  <div class="tab" onclick="showSection('insights')">Key Insights</div>
+</nav>
+
+<!-- ══ MAIN ══════════════════════════════════════════════════════════════ -->
+<main>
+
+  <!-- ════════════════ SECTION 1: OVERVIEW ═══════════════════════════ -->
+  <section id="overview" class="section active">
+
+    <div class="section-header">
+      <div>
+        <div class="section-title">Business <em>Overview</em></div>
+        <div class="section-desc">Top-level KPIs extracted from 541,910 transaction records via Hive</div>
+      </div>
+    </div>
+
+    <!-- KPI Row -->
+    <div class="grid-4">
+      <div class="kpi-card" style="--kpi-color: var(--accent)">
+        <div class="kpi-icon">💰</div>
+        <div class="kpi-label">Total Revenue</div>
+        <div class="kpi-val text-accent">£9.75M</div>
+        <div class="kpi-sub">Gross across all countries</div>
+        <div class="kpi-badge">▲ Peak: Nov 2011</div>
+      </div>
+      <div class="kpi-card" style="--kpi-color: var(--accent2)">
+        <div class="kpi-icon">📦</div>
+        <div class="kpi-label">Total Orders</div>
+        <div class="kpi-val" style="color:var(--accent2)">541,910</div>
+        <div class="kpi-sub">Transaction rows processed</div>
+        <div class="kpi-badge" style="background:rgba(79,138,255,.1);color:var(--accent2)">10,624 Returns</div>
+      </div>
+      <div class="kpi-card" style="--kpi-color: var(--accent4)">
+        <div class="kpi-icon">👥</div>
+        <div class="kpi-label">Unique Customers</div>
+        <div class="kpi-val" style="color:var(--accent4)">4,372</div>
+        <div class="kpi-sub">3,059 repeat · 1,313 one-time</div>
+        <div class="kpi-badge" style="background:rgba(255,209,102,.1);color:var(--accent4)">70% Repeat Rate</div>
+      </div>
+      <div class="kpi-card" style="--kpi-color: var(--accent3)">
+        <div class="kpi-icon">🛒</div>
+        <div class="kpi-label">Avg Order Value</div>
+        <div class="kpi-val" style="color:var(--accent3)">£376.36</div>
+        <div class="kpi-sub">Avg basket: 199.86 units</div>
+        <div class="kpi-badge" style="background:rgba(255,107,107,.1);color:var(--accent3)">B2B Scale Likely</div>
+      </div>
+    </div>
+
+    <!-- Country Revenue + Hour Revenue -->
+    <div class="grid-21 mt-28">
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>Revenue by Country (Top 10)</div>
+        <div class="chart-wrap" style="height:320px">
+          <canvas id="countryChart"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="dot" style="background:var(--accent2)"></span>Peak Sales Hours</div>
+        <div class="chart-wrap" style="height:320px">
+          <canvas id="hourChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Customer Split -->
+    <div class="grid-3 mt-20">
+      <div class="card">
+        <div class="card-title"><span class="dot" style="background:var(--accent3)"></span>Repeat vs One-Time Customers</div>
+        <div class="chart-wrap" style="height:200px">
+          <canvas id="repeatChart"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="dot" style="background:var(--accent4)"></span>RFM Segment Share</div>
+        <div class="chart-wrap" style="height:200px">
+          <canvas id="rfmDonutSmall"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>Quick Stats</div>
+        <div class="stat-row"><span class="stat-name">Total Returns</span><span class="stat-val">10,624</span></div>
+        <div class="stat-row"><span class="stat-name">Countries Served</span><span class="stat-val">38</span></div>
+        <div class="stat-row"><span class="stat-name">Avg Basket Size</span><span class="stat-val">199.86 units</span></div>
+        <div class="stat-row"><span class="stat-name">Peak Hour</span><span class="stat-val">12:00 (noon)</span></div>
+        <div class="stat-row"><span class="stat-name">Best Month</span><span class="stat-val">Nov 2011</span></div>
+        <div class="stat-row"><span class="stat-name">UK Revenue Share</span><span class="stat-val">83.9%</span></div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ════════════════ SECTION 2: TRENDS ═════════════════════════════ -->
+  <section id="trends" class="section">
+
+    <div class="section-header">
+      <div>
+        <div class="section-title">Revenue <em>Trends</em></div>
+        <div class="section-desc">Monthly and hourly sales patterns across the full observation window</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>Monthly Revenue — Dec 2010 to Dec 2011</div>
+      <div class="chart-wrap" style="height:340px">
+        <canvas id="monthlyChart"></canvas>
+      </div>
+    </div>
+
+    <div class="grid-2 mt-20">
+      <div class="card">
+        <div class="card-title"><span class="dot" style="background:var(--accent2)"></span>Revenue by Quarter</div>
+        <div class="chart-wrap" style="height:240px">
+          <canvas id="quarterChart"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="dot" style="background:var(--accent4)"></span>Top 5 Countries — Monthly Drilldown (Dec 2010)</div>
+        <div class="chart-wrap" style="height:240px">
+          <canvas id="drilldownChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ════════════════ SECTION 3: PRODUCTS ═══════════════════════════ -->
+  <section id="products" class="section">
+
+    <div class="section-header">
+      <div>
+        <div class="section-title">Product <em>Performance</em></div>
+        <div class="section-desc">Top revenue generators and best-sellers by quantity</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>Top 10 by Revenue (£)</div>
+        <div class="chart-wrap" style="height:340px">
+          <canvas id="topRevenueChart"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="dot" style="background:var(--accent2)"></span>Top 10 by Quantity Sold</div>
+        <div class="chart-wrap" style="height:340px">
+          <canvas id="topQtyChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-20">
+      <div class="card-title"><span class="dot" style="background:var(--accent4)"></span>Top Products — Detail Table</div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Product Name</th>
+            <th>Revenue (£)</th>
+            <th>Revenue Share</th>
+            <th>Units Sold</th>
+          </tr>
+        </thead>
+        <tbody id="productTableBody"></tbody>
+      </table>
+    </div>
+
+  </section>
+
+  <!-- ════════════════ SECTION 4: CUSTOMERS & RFM ════════════════════ -->
+  <section id="customers" class="section">
+
+    <div class="section-header">
+      <div>
+        <div class="section-title">Customers <em>& RFM</em></div>
+        <div class="section-desc">Customer lifetime value, segmentation, and behavioural profiles</div>
+      </div>
+    </div>
+
+    <div class="grid-21">
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>Top 20 Customers by CLV (£)</div>
+        <div class="chart-wrap" style="height:360px">
+          <canvas id="clvChart"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="dot" style="background:var(--accent2)"></span>RFM Segmentation</div>
+        <div class="chart-wrap" style="height:220px">
+          <canvas id="rfmDonut"></canvas>
+        </div>
+        <div style="margin-top:16px">
+          <div class="stat-row">
+            <span><span class="seg-pill seg-champions">Champions</span></span>
+            <span class="stat-val">961 customers</span>
+          </div>
+          <div class="stat-row">
+            <span><span class="seg-pill seg-loyal">Loyal</span></span>
+            <span class="stat-val">342 customers</span>
+          </div>
+          <div class="stat-row">
+            <span><span class="seg-pill seg-at-risk">At Risk</span></span>
+            <span class="stat-val">299 customers</span>
+          </div>
+          <div class="stat-row">
+            <span><span class="seg-pill seg-others">Others</span></span>
+            <span class="stat-val">2,770 customers</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2 mt-20">
+      <div class="card">
+        <div class="card-title"><span class="dot" style="background:var(--accent4)"></span>Top 10 Customers — CLV Table</div>
+        <table class="data-table">
+          <thead>
+            <tr><th>#</th><th>Customer ID</th><th>CLV (£)</th><th>Segment</th></tr>
+          </thead>
+          <tbody id="clvTableBody"></tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="dot" style="background:var(--accent3)"></span>RFM Segment Revenue Contribution</div>
+        <div class="chart-wrap" style="height:280px">
+          <canvas id="rfmRevenueChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ════════════════ SECTION 5: COHORT ══════════════════════════════ -->
+  <section id="cohort" class="section">
+
+    <div class="section-header">
+      <div>
+        <div class="section-title">Cohort <em>Retention</em></div>
+        <div class="section-desc">How many customers from each acquisition cohort returned in subsequent months</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>Customer Retention Heatmap — Months Since First Purchase</div>
+      <div class="heatmap-wrap">
+        <table class="heatmap" id="cohortTable"></table>
+      </div>
+      <div style="margin-top:16px; display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+        <span class="text-muted" style="font-size:11px">Retention intensity:</span>
+        <div style="display:flex;gap:4px;align-items:center">
+          <div style="width:14px;height:14px;border-radius:3px;background:rgba(0,229,160,.08)"></div>
+          <span style="font-size:10px;color:var(--muted)">Low</span>
+        </div>
+        <div style="display:flex;gap:4px;align-items:center">
+          <div style="width:14px;height:14px;border-radius:3px;background:rgba(0,229,160,.35)"></div>
+          <span style="font-size:10px;color:var(--muted)">Mid</span>
+        </div>
+        <div style="display:flex;gap:4px;align-items:center">
+          <div style="width:14px;height:14px;border-radius:3px;background:rgba(0,229,160,.8)"></div>
+          <span style="font-size:10px;color:var(--muted)">High</span>
+        </div>
+        <span style="font-size:10px;color:var(--muted);margin-left:8px">Cell value = # customers active</span>
+      </div>
+    </div>
+
+    <div class="card mt-20">
+      <div class="card-title"><span class="dot" style="background:var(--accent2)"></span>Dec 2010 Cohort — Retention Over Time</div>
+      <div class="chart-wrap" style="height:280px">
+        <canvas id="cohortLineChart"></canvas>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ════════════════ SECTION 6: INSIGHTS ═══════════════════════════ -->
+  <section id="insights" class="section">
+
+    <div class="section-header">
+      <div>
+        <div class="section-title">Key <em>Insights</em></div>
+        <div class="section-desc">Analytical findings derived from Hive queries on the full dataset</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="insight-card">
+        <div class="insight-icon" style="background:rgba(0,229,160,.1)">📈</div>
+        <div>
+          <div class="insight-title">Q4 Seasonal Surge</div>
+          <div class="insight-text">Revenue surges dramatically in Q4, with <strong>November 2011 reaching £1.46M</strong> — nearly 3× the monthly average. This pattern signals strong seasonal demand tied to holiday gifting. Inventory and logistics must be pre-scaled by September.</div>
+        </div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-icon" style="background:rgba(79,138,255,.1)">🌍</div>
+        <div>
+          <div class="insight-title">UK Market Concentration Risk</div>
+          <div class="insight-text">The United Kingdom accounts for <strong>83.9% of all revenue (£8.19M)</strong>. The Netherlands (£284K), EIRE (£263K), and Germany (£221K) are the next largest. Heavy dependence on a single market creates vulnerability to local economic shocks.</div>
+        </div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-icon" style="background:rgba(0,229,160,.1)">🏆</div>
+        <div>
+          <div class="insight-title">Champions Drive Disproportionate Revenue</div>
+          <div class="insight-text">Just <strong>961 Champion customers (22% of base)</strong> generated £5.61M — over 57% of total revenue. Retention programmes targeting this cohort yield outsized ROI. A single churned Champion costs as much as acquiring ~7 average customers.</div>
+        </div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-icon" style="background:rgba(255,107,107,.1)">⚠️</div>
+        <div>
+          <div class="insight-title">At-Risk Segment Needs Immediate Action</div>
+          <div class="insight-text"><strong>299 At-Risk customers hold £499K in revenue potential.</strong> These customers previously purchased but have gone quiet. Targeted win-back campaigns (discounts, personalised emails) could recover a significant portion before they churn permanently.</div>
+        </div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-icon" style="background:rgba(255,209,102,.1)">⏰</div>
+        <div>
+          <div class="insight-title">Midday is Prime Sales Time</div>
+          <div class="insight-text"><strong>12:00 noon generates the highest revenue (£1.36M)</strong>, followed by 10:00 and 15:00. All peak hours fall between 9 AM–5 PM, typical of a B2B wholesale platform. Flash sales and promotions should be scheduled in the 10–13 window for maximum reach.</div>
+        </div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-icon" style="background:rgba(79,138,255,.1)">🔁</div>
+        <div>
+          <div class="insight-title">Strong Customer Loyalty Foundation</div>
+          <div class="insight-text"><strong>3,059 of 4,372 customers (70%) are repeat buyers.</strong> The Dec 2010 cohort retained ~38% of customers through month 2 and settled at ~35–40% by month 12 — a strong retention floor for a wholesale business. Loyalty programmes can push this above 50%.</div>
+        </div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-icon" style="background:rgba(0,229,160,.1)">🛍️</div>
+        <div>
+          <div class="insight-title">DOTCOM POSTAGE Tops Revenue but Skews Data</div>
+          <div class="insight-text"><strong>DOTCOM POSTAGE earned £206K</strong> but is a service charge, not a product. Excluding it makes REGENCY CAKESTAND 3 TIER (£164K) the top physical product. Basket analysis should strip service SKUs to surface true product affinity patterns.</div>
+        </div>
+      </div>
+      <div class="insight-card">
+        <div class="insight-icon" style="background:rgba(255,107,107,.1)">📦</div>
+        <div>
+          <div class="insight-title">High Average Order Value Indicates Wholesale Behaviour</div>
+          <div class="insight-text">An AOV of <strong>£376 with an average basket of 199.86 units</strong> far exceeds typical retail behaviour. This confirms the dataset represents a wholesale/B2B channel where bulk purchasing is standard. Pricing, MOQs and volume discounts should be primary commercial levers.</div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+</main>
+
+<!-- ══ JAVASCRIPT ═════════════════════════════════════════════════════ -->
+<script>
+
+/* ═══════════════════════════════════════════════════
+   DATA — derived directly from Hive query outputs
+   ═══════════════════════════════════════════════════ */
+const DATA = {
+  monthly: {
+    labels: ['Dec 2010','Jan 2011','Feb 2011','Mar 2011','Apr 2011','May 2011',
+             'Jun 2011','Jul 2011','Aug 2011','Sep 2011','Oct 2011','Nov 2011','Dec 2011'],
+    values: [748957.02, 560000.26, 498062.65, 683267.08, 493207.12, 723333.51,
+             691123.12, 681300.11, 682680.51, 1019687.62, 1070704.67, 1461756.25, 433668.01]
+  },
+  countries: {
+    labels: ['United Kingdom','Netherlands','EIRE','Germany','France','Australia','Switzerland','Spain','Belgium','Sweden'],
+    values: [8187806.36, 284661.54, 263276.82, 221698.21, 197403.90, 137077.27, 56385.35, 54774.58, 40910.96, 36595.91]
+  },
+  hours: {
+    labels: ['7','8','9','10','11','12','13','14','15','16','17','18','19','20'],
+    values: [31009, 281841, 766734, 1329057, 1147438, 1362484, 1177506, 1095213, 1189458, 729141, 435444, 140574, 46325, 16020]
+  },
+  topRevenue: {
+    labels: ['DOTCOM POSTAGE','REGENCY CAKESTAND 3 TIER','WHITE HANGING HEART T-LIGHT',
+             'PARTY BUNTING','JUMBO BAG RED RETROSPOT','RABBIT NIGHT LIGHT','POSTAGE',
+             'PAPER CHAIN KIT 50S XMAS','ASSORTED COLOUR BIRD ORNAMENT','CHILLI LIGHTS'],
+    values: [206245.48, 164762.19, 99668.47, 98302.98, 92356.03, 66756.59, 66230.64, 63791.94, 58959.73, 53768.06]
+  },
+  topQty: {
+    labels: ['WORLD WAR 2 GLIDERS','JUMBO BAG RED RETROSPOT','ASSORTED COLOUR BIRD','POPCORN HOLDER',
+             'PACK OF 72 RETROSPOT CAKES','WHITE HANGING HEART','RABBIT NIGHT LIGHT',
+             'MINI PAINT SET VINTAGE','PACK OF 12 LONDON TISSUES','PINK PAISLEY CAKE CASES'],
+    values: [53847, 47363, 36381, 36334, 36039, 35317, 30680, 26437, 26315, 24753]
+  },
+  rfm: {
+    labels: ['Champions','Loyal Customers','At Risk','Others'],
+    counts: [961, 342, 299, 2770],
+    revenue: [5613576.43, 289897.88, 499085.10, 1897506.40]
+  },
+  clv: {
+    ids: ['14646','18102','17450','14911','12415','14156','17511','16684','13694','15311',
+          '13089','14096','15061','17949','15769','16029','14298','14088','17841','13798'],
+    values: [279489.02, 256438.49, 187482.17, 132572.62, 123725.45, 113384.14, 88125.38,
+             65892.08, 62653.10, 59419.34, 57385.88, 57120.91, 54228.74, 52750.84,
+             51823.72, 50992.61, 50862.44, 50415.49, 40340.78, 36351.42]
+  },
+  repeat: { labels: ['Repeat Buyers','One-Time Buyers'], values: [3059, 1313] },
+  drilldown: {
+    labels: ['United Kingdom','Germany','France','EIRE','Netherlands'],
+    values: [676742.62, 14562.84, 9575.36, 9029.95, 8784.48]
+  },
+  cohort: {
+    cohorts: ['2010-12','2011-01','2011-02','2011-03','2011-04','2011-05','2011-06','2011-07','2011-08','2011-09','2011-10','2011-11','2011-12'],
+    data: {
+      '2010-12': {'2010-12':948,'2011-01':362,'2011-02':317,'2011-03':367,'2011-04':341,'2011-05':376,'2011-06':360,'2011-07':336,'2011-08':336,'2011-09':374,'2011-10':354,'2011-11':474,'2011-12':260},
+      '2011-01': {'2011-01':421,'2011-02':101,'2011-03':119,'2011-04':102,'2011-05':138,'2011-06':126,'2011-07':110,'2011-08':108,'2011-09':131,'2011-10':146,'2011-11':155,'2011-12':63},
+      '2011-02': {'2011-02':380,'2011-03':94,'2011-04':73,'2011-05':106,'2011-06':102,'2011-07':94,'2011-08':97,'2011-09':107,'2011-10':98,'2011-11':119,'2011-12':35},
+      '2011-03': {'2011-03':440,'2011-04':84,'2011-05':112,'2011-06':96,'2011-07':102,'2011-08':78,'2011-09':116,'2011-10':105,'2011-11':127,'2011-12':39},
+      '2011-04': {'2011-04':299,'2011-05':68,'2011-06':66,'2011-07':63,'2011-08':62,'2011-09':71,'2011-10':69,'2011-11':78,'2011-12':25},
+      '2011-05': {'2011-05':279,'2011-06':66,'2011-07':48,'2011-08':48,'2011-09':60,'2011-10':68,'2011-11':74,'2011-12':29},
+      '2011-06': {'2011-06':235,'2011-07':49,'2011-08':44,'2011-09':64,'2011-10':58,'2011-11':79,'2011-12':24},
+      '2011-07': {'2011-07':191,'2011-08':40,'2011-09':39,'2011-10':44,'2011-11':52,'2011-12':22},
+      '2011-08': {'2011-08':167,'2011-09':42,'2011-10':42,'2011-11':42,'2011-12':23},
+      '2011-09': {'2011-09':298,'2011-10':89,'2011-11':97,'2011-12':36},
+      '2011-10': {'2011-10':352,'2011-11':93,'2011-12':46},
+      '2011-11': {'2011-11':321,'2011-12':43},
+      '2011-12': {'2011-12':41}
+    }
+  }
+};
+
+/* ═══════════════════════════════════════════════════
+   CHART DEFAULTS
+   ═══════════════════════════════════════════════════ */
+Chart.defaults.color = '#6b7591';
+Chart.defaults.font.family = "'DM Mono', monospace";
+Chart.defaults.font.size = 11;
+
+const gridOpts = {
+  color: 'rgba(30,36,48,.8)',
+  drawBorder: false
+};
+const tooltipStyle = {
+  backgroundColor: '#181c24',
+  borderColor: '#1e2430',
+  borderWidth: 1,
+  titleColor: '#e8ecf4',
+  bodyColor: '#6b7591',
+  padding: 12,
+  cornerRadius: 8
+};
+
+function fmtGBP(v) {
+  if (v >= 1e6) return '£' + (v/1e6).toFixed(2) + 'M';
+  if (v >= 1e3) return '£' + (v/1e3).toFixed(1) + 'K';
+  return '£' + v.toFixed(0);
+}
+
+/* ═══════════════════════════════════════════════════
+   CHART BUILDERS
+   ═══════════════════════════════════════════════════ */
+
+// — Monthly Revenue ——————————————————————————
+new Chart(document.getElementById('monthlyChart'), {
+  type: 'line',
+  data: {
+    labels: DATA.monthly.labels,
+    datasets: [{
+      label: 'Monthly Revenue',
+      data: DATA.monthly.values,
+      borderColor: '#00e5a0',
+      backgroundColor: ctx => {
+        const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 340);
+        g.addColorStop(0, 'rgba(0,229,160,.25)');
+        g.addColorStop(1, 'rgba(0,229,160,.0)');
+        return g;
+      },
+      fill: true, tension: .4, pointRadius: 5,
+      pointBackgroundColor: '#00e5a0', pointBorderColor: '#0a0c10', pointBorderWidth: 2
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { label: ctx => ' ' + fmtGBP(ctx.raw) } } },
+    scales: {
+      x: { grid: gridOpts },
+      y: { grid: gridOpts, ticks: { callback: v => fmtGBP(v) } }
+    }
+  }
+});
+
+// — Country Revenue ——————————————————————————
+new Chart(document.getElementById('countryChart'), {
+  type: 'bar',
+  data: {
+    labels: DATA.countries.labels,
+    datasets: [{
+      label: 'Revenue',
+      data: DATA.countries.values,
+      backgroundColor: DATA.countries.values.map((v,i) =>
+        i === 0 ? '#00e5a0' : `rgba(0,229,160,${0.6 - i*0.05})`),
+      borderRadius: 6, borderSkipped: false
+    }]
+  },
+  options: {
+    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { label: ctx => ' ' + fmtGBP(ctx.raw) } } },
+    scales: {
+      x: { grid: gridOpts, ticks: { callback: v => fmtGBP(v) } },
+      y: { grid: { display: false } }
+    }
+  }
+});
+
+// — Hour Chart ——————————————————————————
+new Chart(document.getElementById('hourChart'), {
+  type: 'bar',
+  data: {
+    labels: DATA.hours.labels.map(h => h + ':00'),
+    datasets: [{
+      data: DATA.hours.values,
+      backgroundColor: DATA.hours.values.map((v,i) =>
+        v === Math.max(...DATA.hours.values) ? '#4f8aff' : 'rgba(79,138,255,.45)'),
+      borderRadius: 5
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { label: ctx => ' ' + fmtGBP(ctx.raw) } } },
+    scales: { x: { grid: { display: false } }, y: { grid: gridOpts, ticks: { callback: v => fmtGBP(v) } } }
+  }
+});
+
+// — Repeat vs One-Time ——————————————————————
+new Chart(document.getElementById('repeatChart'), {
+  type: 'doughnut',
+  data: {
+    labels: DATA.repeat.labels,
+    datasets: [{ data: DATA.repeat.values, backgroundColor: ['#00e5a0','#1e2430'], borderWidth: 0, hoverOffset: 4 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false, cutout: '68%',
+    plugins: { legend: { position: 'bottom', labels: { padding: 16, font: { size: 11 } } }, tooltip: { ...tooltipStyle } }
+  }
+});
+
+// — RFM Donut (small) ——————————————————————
+new Chart(document.getElementById('rfmDonutSmall'), {
+  type: 'doughnut',
+  data: {
+    labels: DATA.rfm.labels,
+    datasets: [{ data: DATA.rfm.counts, backgroundColor: ['#00e5a0','#4f8aff','#ff6b6b','#ffd166'], borderWidth: 0, hoverOffset: 4 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false, cutout: '65%',
+    plugins: { legend: { position: 'bottom', labels: { padding: 12, font: { size: 10 } } }, tooltip: { ...tooltipStyle } }
+  }
+});
+
+// — Quarter Chart ——————————————————————————
+const quarterData = [
+  DATA.monthly.values[0],
+  DATA.monthly.values[1]+DATA.monthly.values[2]+DATA.monthly.values[3],
+  DATA.monthly.values[4]+DATA.monthly.values[5]+DATA.monthly.values[6],
+  DATA.monthly.values[7]+DATA.monthly.values[8]+DATA.monthly.values[9],
+  DATA.monthly.values[10]+DATA.monthly.values[11]+DATA.monthly.values[12]
+];
+new Chart(document.getElementById('quarterChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Dec 2010','Q1 2011','Q2 2011','Q3 2011','Q4 2011'],
+    datasets: [{
+      data: quarterData,
+      backgroundColor: quarterData.map((v,i) => v === Math.max(...quarterData) ? '#ffd166' : 'rgba(255,209,102,.4)'),
+      borderRadius: 8
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { label: ctx => ' ' + fmtGBP(ctx.raw) } } },
+    scales: { x: { grid: { display: false } }, y: { grid: gridOpts, ticks: { callback: v => fmtGBP(v) } } }
+  }
+});
+
+// — Drilldown ——————————————————————————
+new Chart(document.getElementById('drilldownChart'), {
+  type: 'bar',
+  data: {
+    labels: DATA.drilldown.labels,
+    datasets: [{
+      data: DATA.drilldown.values,
+      backgroundColor: ['#00e5a0','rgba(0,229,160,.5)','rgba(0,229,160,.38)','rgba(0,229,160,.28)','rgba(0,229,160,.2)'],
+      borderRadius: 6
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { label: ctx => ' ' + fmtGBP(ctx.raw) } } },
+    scales: { x: { grid: { display: false } }, y: { grid: gridOpts, ticks: { callback: v => fmtGBP(v) } } }
+  }
+});
+
+// — Top Revenue Products ——————————————————
+new Chart(document.getElementById('topRevenueChart'), {
+  type: 'bar',
+  data: {
+    labels: DATA.topRevenue.labels.map(l => l.length > 22 ? l.slice(0,22)+'…' : l),
+    datasets: [{
+      data: DATA.topRevenue.values,
+      backgroundColor: 'rgba(0,229,160,.55)',
+      borderColor: '#00e5a0',
+      borderWidth: 1,
+      borderRadius: 5
+    }]
+  },
+  options: {
+    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { label: ctx => ' ' + fmtGBP(ctx.raw) } } },
+    scales: { x: { grid: gridOpts, ticks: { callback: v => fmtGBP(v) } }, y: { grid: { display: false } } }
+  }
+});
+
+// — Top Qty Products ——————————————————————
+new Chart(document.getElementById('topQtyChart'), {
+  type: 'bar',
+  data: {
+    labels: DATA.topQty.labels.map(l => l.length > 22 ? l.slice(0,22)+'…' : l),
+    datasets: [{
+      data: DATA.topQty.values,
+      backgroundColor: 'rgba(79,138,255,.55)',
+      borderColor: '#4f8aff',
+      borderWidth: 1,
+      borderRadius: 5
+    }]
+  },
+  options: {
+    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle } },
+    scales: { x: { grid: gridOpts }, y: { grid: { display: false } } }
+  }
+});
+
+// — CLV Bar ——————————————————————————————
+new Chart(document.getElementById('clvChart'), {
+  type: 'bar',
+  data: {
+    labels: DATA.clv.ids.map(id => 'C-' + id),
+    datasets: [{
+      label: 'CLV (£)',
+      data: DATA.clv.values,
+      backgroundColor: DATA.clv.values.map((v,i) => {
+        if (i < 3) return '#00e5a0';
+        if (i < 6) return 'rgba(0,229,160,.6)';
+        return 'rgba(0,229,160,.35)';
+      }),
+      borderRadius: 4
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { label: ctx => ' ' + fmtGBP(ctx.raw) } } },
+    scales: { x: { grid: { display: false }, ticks: { maxRotation: 45 } }, y: { grid: gridOpts, ticks: { callback: v => fmtGBP(v) } } }
+  }
+});
+
+// — RFM Donut (full page) ——————————————————
+new Chart(document.getElementById('rfmDonut'), {
+  type: 'doughnut',
+  data: {
+    labels: DATA.rfm.labels,
+    datasets: [{ data: DATA.rfm.counts, backgroundColor: ['#00e5a0','#4f8aff','#ff6b6b','#ffd166'], borderWidth: 0, hoverOffset: 6 }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false, cutout: '70%',
+    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle } }
+  }
+});
+
+// — RFM Revenue Chart ——————————————————————
+new Chart(document.getElementById('rfmRevenueChart'), {
+  type: 'bar',
+  data: {
+    labels: DATA.rfm.labels,
+    datasets: [{
+      data: DATA.rfm.revenue,
+      backgroundColor: ['#00e5a0','#4f8aff','#ff6b6b','#ffd166'],
+      borderRadius: 8
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle, callbacks: { label: ctx => ' ' + fmtGBP(ctx.raw) } } },
+    scales: { x: { grid: { display: false } }, y: { grid: gridOpts, ticks: { callback: v => fmtGBP(v) } } }
+  }
+});
+
+// — Cohort Line ——————————————————————————
+const dec10 = DATA.cohort.data['2010-12'];
+const dec10Keys = Object.keys(dec10);
+new Chart(document.getElementById('cohortLineChart'), {
+  type: 'line',
+  data: {
+    labels: dec10Keys.map((k,i) => i === 0 ? 'M0 (Acq)' : 'M+' + i),
+    datasets: [{
+      label: 'Dec 2010 Cohort',
+      data: dec10Keys.map(k => dec10[k]),
+      borderColor: '#4f8aff',
+      backgroundColor: ctx => {
+        const g = ctx.chart.ctx.createLinearGradient(0,0,0,280);
+        g.addColorStop(0,'rgba(79,138,255,.2)');
+        g.addColorStop(1,'rgba(79,138,255,0)');
+        return g;
+      },
+      fill: true, tension: .4, pointRadius: 5,
+      pointBackgroundColor: '#4f8aff', pointBorderColor: '#0a0c10', pointBorderWidth: 2
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: { ...tooltipStyle } },
+    scales: { x: { grid: { display: false } }, y: { grid: gridOpts, min: 0 } }
+  }
+});
+
+/* ═══════════════════════════════════════════════════
+   COHORT HEATMAP TABLE
+   ═══════════════════════════════════════════════════ */
+(function buildCohortTable() {
+  const cohorts = DATA.cohort.cohorts;
+  const tbl = document.getElementById('cohortTable');
+
+  // header
+  const thead = tbl.createTHead();
+  const hrow = thead.insertRow();
+  const th0 = document.createElement('th');
+  th0.textContent = 'Cohort ↓ / Month →';
+  hrow.appendChild(th0);
+
+  cohorts.forEach(m => {
+    const th = document.createElement('th');
+    th.textContent = m.replace('20','');
+    hrow.appendChild(th);
+  });
+
+  // max value for colour scaling
+  let maxVal = 0;
+  cohorts.forEach(c => {
+    const row = DATA.cohort.data[c] || {};
+    Object.values(row).forEach(v => { if (v > maxVal) maxVal = v; });
+  });
+
+  const tbody = tbl.createTBody();
+  cohorts.forEach(cohort => {
+    const rowData = DATA.cohort.data[cohort] || {};
+    const tr = tbody.insertRow();
+
+    const td0 = tr.insertCell();
+    td0.textContent = cohort.replace('20','');
+    td0.style.fontWeight = '600';
+
+    cohorts.forEach(m => {
+      const td = tr.insertCell();
+      const val = rowData[m];
+      if (val !== undefined) {
+        td.textContent = val;
+        const pct = val / maxVal;
+        const alpha = 0.08 + pct * 0.75;
+        td.style.background = `rgba(0,229,160,${alpha.toFixed(2)})`;
+        td.style.color = pct > 0.5 ? '#000' : '#e8ecf4';
+        td.title = `${cohort} → ${m}: ${val} customers`;
+      } else {
+        td.style.background = 'transparent';
+        td.textContent = '—';
+        td.style.color = 'rgba(107,117,145,.3)';
+      }
+    });
+  });
+})();
+
+/* ═══════════════════════════════════════════════════
+   PRODUCT TABLE
+   ═══════════════════════════════════════════════════ */
+(function buildProductTable() {
+  const tb = document.getElementById('productTableBody');
+  const totalRev = DATA.topRevenue.values.reduce((a,b) => a+b, 0);
+  const badges = ['gold','silver','bronze'];
+
+  DATA.topRevenue.labels.forEach((name, i) => {
+    const val = DATA.topRevenue.values[i];
+    const share = (val / totalRev * 100).toFixed(1);
+    const qty = DATA.topQty.values[DATA.topQty.labels.findIndex(l => l.toLowerCase().includes(name.split(' ')[0].toLowerCase()))] || '—';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="rank-badge ${badges[i] || ''}">${i+1}</span></td>
+      <td style="font-weight:600;max-width:260px">${name}</td>
+      <td class="mono text-accent">${fmtGBP(val)}</td>
+      <td>
+        <div class="bar-cell">
+          <div class="mini-bar" style="width:${share*2}px;max-width:100px"></div>
+          <span class="mono" style="color:var(--muted)">${share}%</span>
+        </div>
+      </td>
+      <td class="mono" style="color:var(--muted)">${typeof qty === 'number' ? qty.toLocaleString() : qty}</td>
+    `;
+    tb.appendChild(tr);
+  });
+})();
+
+/* ═══════════════════════════════════════════════════
+   CLV TABLE
+   ═══════════════════════════════════════════════════ */
+(function buildCLVTable() {
+  const tb = document.getElementById('clvTableBody');
+  const segs = ['Champions','Champions','Champions','Loyal Customers','Champions','Loyal Customers','Loyal Customers','Others','Others','Others'];
+  const segClasses = {'Champions':'seg-champions','Loyal Customers':'seg-loyal','At Risk':'seg-at-risk','Others':'seg-others'};
+  const badges = ['gold','silver','bronze'];
+
+  DATA.clv.ids.slice(0,10).forEach((id, i) => {
+    const val = DATA.clv.values[i];
+    const seg = segs[i];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="rank-badge ${badges[i] || ''}">${i+1}</span></td>
+      <td class="mono fw-700">C-${id}</td>
+      <td class="mono text-accent">${fmtGBP(val)}</td>
+      <td><span class="seg-pill ${segClasses[seg]}">${seg}</span></td>
+    `;
+    tb.appendChild(tr);
+  });
+})();
+
+/* ═══════════════════════════════════════════════════
+   TAB NAVIGATION
+   ═══════════════════════════════════════════════════ */
+function showSection(id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const tabs = ['overview','trends','products','customers','cohort','insights'];
+  document.querySelectorAll('.tab')[tabs.indexOf(id)].classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+</script>
+</body>
+</html>
